@@ -1,0 +1,186 @@
+@{
+    ViewData["Title"] = "Mention Reply";
+    string symbol = "@";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.ckeditor.com/4.16.1/standard/ckeditor.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script> <!-- jQuery -->
+    <style>
+        #mentionBox {
+            display: none;
+            position: absolute;
+            background: #fff;
+            border: 1px solid #ccc;
+            max-height: 150px;
+            overflow-y: auto;
+            width: 200px;
+            z-index: 9999;
+        }
+        #mentionList {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        #mentionList li {
+            padding: 5px;
+            cursor: pointer;
+        }
+        #mentionList li:hover,
+        #mentionList li.selected {
+            background-color: #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+
+<form method="post" action="#">
+    <div class="form-group">
+        <label for="editor">Post Content</label>
+        <textarea id="editor" name="content" class="form-control"></textarea>
+    </div>
+    <button type="submit" class="btn btn-primary">Submit</button>
+</form>
+
+<!-- Mention Box -->
+<div id="mentionBox">
+    <ul id="mentionList">
+        <!-- User list will be dynamically populated here -->
+    </ul>
+</div>
+
+<script>
+        var symbols = @Html.Raw(Json.Serialize(new string[] { symbol }))
+$(document).ready(function () {
+    // Example user data
+    var users = [
+        { id: 1, name: 'John Doe' },
+        { id: 2, name: 'Jane Smith' },
+        { id: 3, name: 'Alice Johnson' },
+        { id: 4, name: 'Bob Brown4' },
+        { id: 5, name: 'Bob Brown5' },
+        { id: 6, name: 'Bob Brown6' },
+        { id: 7, name: 'Bob Brown7' },
+        { id: 8, name: 'Bob Brown8' },
+        { id: 9, name: 'Bob Brown9' }
+    ];
+
+    // Initialize CKEditor
+    var editor = CKEDITOR.replace('editor');
+
+    // Mention box element
+    var mentionBox = $('#mentionBox');
+    var mentionList = $('#mentionList');
+    var selectedIndex = -1;
+
+    // Function to position the mention box inside CKEditor below the cursor
+    function positionMentionBox() {
+        var selection = editor.getSelection();
+        var range = selection.getRanges()[0];
+        //var position = range.startContainer.getClientRect();
+
+        // Get editor container position
+        var editorElement = editor.container.$;
+        var editorOffset = $(editorElement).offset();
+
+        // Set the position of the mention box just below the cursor
+        // mentionBox.css({
+        //     top: editorOffset.top + position.top +100,  // Adjust the 20px for vertical offset
+        //     left: editorOffset.left + position.left,
+        //     //width: $(editorElement).width()
+        // });
+    }
+
+    // Handle typing in the editor
+    editor.on('key', function (evt) {
+        var data = evt.data;
+        var keyCode = data.keyCode;
+
+        if (keyCode === 2228274) { 
+            showMentionBox();
+        }
+    });
+
+    // Function to show the mention box and filter list based on query
+    function showMentionBox() {
+        positionMentionBox();  // Position the mention box below the cursor
+        mentionBox.show();  // Show the mention box
+
+        var query = getMentionQuery();  
+        updateMentionList(query);  // Update the list based on the query
+    }
+
+    function getMentionQuery() {
+        var content = editor.getData();
+        var mentionStart = content.lastIndexOf(symbols[0]);
+        var query = content.substring(mentionStart + 1).trim();
+        return query;
+    }
+
+    // Function to update the mention list
+    function updateMentionList(query) {
+        mentionList.empty();  // Clear the list
+        var filteredUsers = users.filter(function (user) {
+            return user.name.toLowerCase();//.includes(query.toLowerCase());
+        });
+
+        // Add filtered users to the list
+        filteredUsers.forEach(function (user) {
+            var li = $('<li>').text(user.name).data('user', user);
+            mentionList.append(li);
+        });
+
+        // Highlight the first item by default
+        if (filteredUsers.length > 0) {
+            selectMention(0);
+        }
+    }
+
+    // Function to insert the mention into the editor
+    function insertMention(user) {
+        var mentionText = symbols[0] + user.name;
+        var range = editor.getSelection().getRanges()[0];
+        range.deleteContents();
+        range.insertNode(CKEDITOR.dom.element.createFromHtml('<span class="mention" style="color:blue">' + mentionText + '</span>'));
+        mentionBox.hide();  // Hide mention box after selection
+    }
+
+    // Handle the click event on a mention in the list
+    mentionList.on('click', 'li', function () {
+        var user = $(this).data('user');
+        insertMention(user);  // Insert the selected mention into the editor
+    });
+
+    // Select a mention in the list (highlight it)
+    function selectMention(index) {
+        var items = mentionList.find('li');
+        items.removeClass('selected');
+        if (index >= 0 && index < items.length) {
+            items.eq(index).addClass('selected');
+            selectedIndex = index;
+        }
+    }
+
+    // Handle keyup events for arrow keys and Enter
+    $(document).on('keydown', function (e) {
+        var items = mentionList.find('li');
+        if (mentionBox.is(':visible') && items.length > 0) {
+            // Up arrow key (38) and Down arrow key (40)
+            if (e.keyCode === 40 && selectedIndex < items.length - 1) {  // Down arrow
+                selectMention(selectedIndex + 1);
+            } else if (e.keyCode === 38 && selectedIndex > 0) {  // Up arrow
+                selectMention(selectedIndex - 1);
+            } else if (e.keyCode === 13) {  // Enter key
+                var selectedUser = items.eq(selectedIndex).data('user');
+                insertMention(selectedUser);
+            }
+        }
+    });
+});
+</script>
+
+</body>
+</html>
